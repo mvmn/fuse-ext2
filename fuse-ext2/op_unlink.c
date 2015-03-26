@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,7 +34,9 @@ int op_unlink (const char *path)
 	struct ext2_vnode *r_vnode;
 	struct ext2_inode *r_inode;
 
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("path = %s", path);
@@ -42,7 +44,7 @@ int op_unlink (const char *path)
 	rt=do_check_split(path, &p_path, &r_path);
 	if (rt != 0) {
 		debugf("do_check_split: failed");
-		return rt;
+		goto err;
 	}
 
 	debugf("parent: %s, child: %s", p_path, r_path);
@@ -50,31 +52,28 @@ int op_unlink (const char *path)
 	rt = do_readinode(e2fs, p_path, &p_ino, &p_inode);
 	if (rt) {
 		debugf("do_readinode(%s, &p_ino, &p_inode); failed", p_path);
-		free_split(p_path, r_path);
-		return rt;
+		goto err_free_split;
 	}
-	rt = do_readvnode(e2fs, path, &r_ino, &r_vnode);
+	rt = do_readvnode(e2fs, path, &r_ino, &r_vnode, DONT_OPEN_FILE);
 	if (rt) {
 		debugf("do_readvnode(%s, &r_ino, &r_vnode); failed", path);
-		free_split(p_path, r_path);
-		return rt;
-
+		goto err_free_split;
 	}
 	r_inode = vnode2inode(r_vnode);
 
 	if(LINUX_S_ISDIR(r_inode->i_mode)) {
 		debugf("%s is a directory", path);
 		vnode_put(r_vnode,0);
-		free_split(p_path, r_path);
-		return -EISDIR;
+		rt = -EISDIR;
+		goto err_free_split;
 	}
 
 	rc = ext2fs_unlink(e2fs, p_ino, r_path, r_ino, 0);
 	if (rc) {
 		debugf("ext2fs_unlink(e2fs, %d, %s, %d, 0); failed", p_ino, r_path, r_ino);
 		vnode_put(r_vnode,0);
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	if (r_inode->i_links_count > 0) {
@@ -82,22 +81,30 @@ int op_unlink (const char *path)
 	}
 
 	p_inode.i_ctime = p_inode.i_mtime = e2fs->now ? e2fs->now : time(NULL);
+
+	rc = ext2fs_write_inode(e2fs, p_ino, &p_inode);
 	if (rc) {
 		debugf("ext2fs_write_inode(e2fs, p_ino, &p_inode); failed");
 		vnode_put(r_vnode,1);
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	r_inode->i_ctime = e2fs->now ? e2fs->now : time(NULL);
 	rc = vnode_put(r_vnode,1);
 	if (rc) {
 		debugf("vnode_put(r_vnode,1); failed");
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	free_split(p_path, r_path);
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
+err_free_split:
+	free_split(p_path, r_path);
+err:
+	FUSE_EXT2_UNLOCK;
+	return rt;
 }

@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -171,26 +171,35 @@ int do_create (ext2_filsys e2fs, const char *path, mode_t mode, dev_t dev, const
 int op_create (const char *path, mode_t mode, struct fuse_file_info *fi)
 {
 	int rt;
-	ext2_filsys e2fs = current_ext2fs();
+	struct ext2_vnode * vnode;
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("path = %s, mode: 0%o", path, mode);
 
-	if (op_open(path, fi) == 0) {
+	fi->fh = (unsigned long) (vnode = do_open(e2fs, path, fi->flags));
+	if (vnode != NULL) {
 		debugf("leave");
+		FUSE_EXT2_UNLOCK;
 		return 0;
 	}
 
 	rt = do_create(e2fs, path, mode, 0, NULL);
 	if (rt != 0) {
+		FUSE_EXT2_UNLOCK;
 		return rt;
 	}
 
-	if (op_open(path, fi)) {
+	fi->fh = (unsigned long) (vnode = do_open(e2fs, path, fi->flags));
+	if (vnode == NULL) {
 		debugf("op_open(path, fi); failed");
+		FUSE_EXT2_UNLOCK;
 		return -EIO;
 	}
 
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
 }

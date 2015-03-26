@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,44 +20,17 @@
 
 #include "fuse-ext2.h"
 
-static void release_callback (struct ext2_inode *inode, int flags)
-{
-	struct ext2_vnode *vnode = (struct ext2_vnode *) inode;
-	vnode_put(vnode, (flags & EXT2_FILE_WRITE) != 0);
-}
-
-int do_release (ext2_file_t efile)
-{
-	errcode_t rc;
-
-	debugf("enter");
-	debugf("path = (%p)", efile);
-
-	if (efile == NULL) {
-		return -ENOENT;
-	}
-	rc = ext2fs_file_close2(efile, release_callback);
-	if (rc) {
-		return -EIO;
-	}
-
-	debugf("leave");
-	return 0;
-}
-
 int op_release (const char *path, struct fuse_file_info *fi)
 {
 	int rt;
-	ext2_file_t efile = (void *) (unsigned long) fi->fh;
+	FUSE_EXT2_LOCK;
 
 	debugf("enter");
-	debugf("path = %s (%p)", path, efile);
-	rt = do_release(efile);
-	if (rt != 0) {
-		debugf("do_release() failed");
-		return rt;
-	}
+	debugf("path = %s", path);
+
+	rt = vnode_file_close(EXT2FS_VNODE(fi->fh));
 
 	debugf("leave");
-	return 0;
+	FUSE_EXT2_UNLOCK;
+	return rt;
 }

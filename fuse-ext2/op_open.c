@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,51 +20,44 @@
 
 #include "fuse-ext2.h"
 
-ext2_file_t do_open (ext2_filsys e2fs, const char *path, int flags)
+struct ext2_vnode * do_open (ext2_filsys e2fs, const char *path, int flags)
 {
-	errcode_t rc;
 	ext2_ino_t ino;
-	ext2_file_t efile;
 	struct ext2_vnode *vnode;
 	int rt;
 
 	debugf("enter");
 	debugf("path = %s", path);
 
-	rt = do_readvnode(e2fs, path, &ino, &vnode);
+	rt = do_readvnode(e2fs, path, &ino, &vnode, OPEN_FILE | flags);
 	if (rt) {
 		debugf("do_readvnode(%s, &ino, &vnode); failed", path);
 		return NULL;
 	}
 
-	rc = ext2fs_file_open2(e2fs, ino, vnode2inode(vnode),
-			(((flags & O_ACCMODE) != 0) ? EXT2_FILE_WRITE : 0) | EXT2_FILE_SHARED_INODE, 
-			&efile);
-
-	if (rc) {
-		vnode_put(vnode,0);
-		return NULL;
-	}
-
 	debugf("leave");
-	return efile;
+	return vnode;
 }
 
 int op_open (const char *path, struct fuse_file_info *fi)
 {
-	ext2_file_t efile;
-	ext2_filsys e2fs = current_ext2fs();
+	struct ext2_vnode * vnode;
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("path = %s", path);
 
-	efile = do_open(e2fs, path, fi->flags);
-	if (efile == NULL) {
+	vnode = do_open(e2fs, path, fi->flags);
+	if (vnode == NULL) {
 		debugf("do_open(%s); failed", path);
+		FUSE_EXT2_UNLOCK;
 		return -ENOENT;
 	}
-	fi->fh = (unsigned long) efile;
+	fi->fh = (unsigned long) vnode;
 
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
 }

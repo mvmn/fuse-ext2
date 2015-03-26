@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,9 +24,11 @@ int op_symlink (const char *sourcename, const char *destname)
 {
 	int rt;
 	size_t wr;
-	ext2_file_t efile;
-	ext2_filsys e2fs = current_ext2fs();
+	struct ext2_vnode *vnode;
+	ext2_filsys e2fs;
 	int sourcelen = strlen(sourcename);
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("source: %s, dest: %s", sourcename, destname);
@@ -36,30 +38,36 @@ int op_symlink (const char *sourcename, const char *destname)
 		rt = do_create(e2fs, destname, LINUX_S_IFLNK | 0777, 0, sourcename);
 		if (rt != 0) {
 			debugf("do_create(%s, LINUX_S_IFLNK | 0777, FAST); failed", destname);
-			return rt;
+			goto err;
 		}
 	} else {
 		rt = do_create(e2fs, destname, LINUX_S_IFLNK | 0777, 0, NULL);
 		if (rt != 0) {
 			debugf("do_create(%s, LINUX_S_IFLNK | 0777); failed", destname);
-			return rt;
+			goto err;
 		}
-		efile = do_open(e2fs, destname, O_WRONLY);
-		if (efile == NULL) {
+		vnode = do_open(e2fs, destname, O_WRONLY);
+		if (vnode == NULL) {
 			debugf("do_open(%s); failed", destname);
-			return -EIO;
+			rt = -EIO;
+			goto err;
 		}
-		wr = do_write(efile, sourcename, sourcelen, 0);
+		wr = vnode_file_write(vnode, sourcename, sourcelen, 0);
 		if (wr != strlen(sourcename)) {
-			debugf("do_write(efile, %s, %d, 0); failed", sourcename, strlen(sourcename) + 1);
-			return -EIO;
+			debugf("do_write(vnode, %s, %d, 0); failed", sourcename, strlen(sourcename) + 1);
+			rt = -EIO;
+			goto err;
 		}
-		rt = do_release(efile);
+		rt = vnode_file_close(vnode);
 		if (rt != 0) {
-			debugf("do_release(efile); failed");
-			return rt;
+			debugf("do_release(vnode); failed");
+			goto err;
 		}
 	}
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
+err:
+	FUSE_EXT2_UNLOCK;
+	return rt;
 }

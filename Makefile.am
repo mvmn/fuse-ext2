@@ -1,8 +1,17 @@
-
-SUBDIRS  = e2fsprogs-1.41.9
+if LINUX
+if STATIC_E2FS
+SUBDIRS = e2fsprogs-1.41.12.newgit
+else
+SUBDIRS = 
+endif
+SUBDIRS += fuse-ext2
+SUBDIRS += test/pjd-fstest-20080816
+else
+SUBDIRS = e2fsprogs-1.41.12.newgit
 SUBDIRS += fuse-ext2
 SUBDIRS += tools
 SUBDIRS += test/pjd-fstest-20080816
+endif
 
 EXTRA_DIST = \
 	fuse-ext2.pc.in
@@ -12,11 +21,9 @@ pkgconfig_DATA = fuse-ext2.pc
 
 $(pkgconfig_DATA): config.status
 
-man1_MANS = fuse-ext2.1
-
 if DARWIN
 package:
-	$(SHELL) $(top_srcdir)/tools/macosx/make-pkg.sh "$(VERSION)" "$(top_srcdir)" "$(top_builddir)" "$(top_srcdir)/tools/macosx/"
+	$(SHELL) $(top_srcdir)/tools/macosx/make-pkg.sh "$(VERSION)" "$(top_builddir)" "$(top_srcdir)/tools/macosx/"
 endif
 if LINUX
 package:

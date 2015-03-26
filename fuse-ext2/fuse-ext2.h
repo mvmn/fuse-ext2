@@ -1,5 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,17 +43,34 @@
 #error "***********************************************************"
 #endif
 
-/* extra definitions not yet included in ext2fs.h */
-#define EXT2_FILE_SHARED_INODE 0x8000
-errcode_t ext2fs_file_close2(ext2_file_t file, void (*close_callback) (struct ext2_inode *inode, int flags));
+#ifdef THREAD_LOCKS
+#include <pthread.h>
+#define FUSE_EXT2_DEFINE_MUTEX \
+	pthread_mutex_t fuse_ext2_mutex = PTHREAD_MUTEX_INITIALIZER
+extern pthread_mutex_t fuse_ext2_mutex;
+#define FUSE_EXT2_LOCK pthread_mutex_lock(&fuse_ext2_mutex)
+#define FUSE_EXT2_UNLOCK pthread_mutex_unlock(&fuse_ext2_mutex)
+#else
+#define FUSE_EXT2_DEFINE_MUTEX
+#define FUSE_EXT2_LOCK 
+#define FUSE_EXT2_UNLOCK
+#endif
+
+#ifdef PRIVATE_FILEIO
+errcode_t ext2fs_file_set_size2(ext2_file_t file, __u64 size);
+struct ext2_inode *ext2fs_file_get_inode(ext2_file_t file);
+#endif
 
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
 
-#define EXT2FS_FILE(efile) ((void *) (unsigned long) (efile))
+#define EXT2FS_VNODE(private_data) ((void *) (unsigned long) (private_data))
 /* max timeout to flush bitmaps, to reduce inconsistencies */
 #define FLUSH_BITMAPS_TIMEOUT 10
+/* constants for do_readvnode */
+#define DONT_OPEN_FILE 0
+#define OPEN_FILE 0x80000000
 
 struct extfs_data {
 	unsigned char debug;
@@ -127,9 +145,19 @@ struct ext2_vnode *vnode_get(ext2_filsys e2fs, ext2_ino_t ino);
 
 int vnode_put(struct ext2_vnode *vnode,int dirty);
 
-static inline struct ext2_inode *vnode2inode(struct ext2_vnode *vnode) {
-	return (struct ext2_inode *)vnode;
-}
+struct ext2_vnode * vnode_file_open(ext2_filsys e2fs, ext2_ino_t ino, int flags);
+
+int vnode_file_read(struct ext2_vnode *vnode, char *buf, size_t size, off_t offset);
+
+int vnode_file_write(struct ext2_vnode *vnode, const char *buf, size_t size, off_t offset);
+
+int vnode_file_set_size(struct ext2_vnode *vnode, __u64 size);
+
+int vnode_file_flush(struct ext2_vnode *vnode);
+
+int vnode_file_close(struct ext2_vnode *vnode);
+
+struct ext2_inode *vnode2inode(struct ext2_vnode *vnode);
 
 void * op_init (struct fuse_conn_info *conn);
 
@@ -151,7 +179,7 @@ void do_fillstatbuf (ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode *inode,
 
 int do_readinode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ext2_inode *inode);
 
-int do_readvnode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ext2_vnode **vnode);
+int do_readvnode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ext2_vnode **vnode, int openflags);
 
 int do_killfilebyinode (ext2_filsys e2fs, ext2_ino_t ino, struct ext2_inode *inode);
 
@@ -163,7 +191,7 @@ int op_fgetattr (const char *path, struct stat *stbuf, struct fuse_file_info *fi
 
 int op_getattr (const char *path, struct stat *stbuf);
 
-ext2_file_t do_open (ext2_filsys e2fs, const char *path, int flags);
+struct ext2_vnode * do_open (ext2_filsys e2fs, const char *path, int flags);
 
 int op_open (const char *path, struct fuse_file_info *fi);
 

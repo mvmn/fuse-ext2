@@ -1,5 +1,5 @@
 
-AC_INIT([fuse-ext2], [0.0.7], [alper.akcan@gmail.com])
+AC_INIT([fuse-ext2], [0.0.7.1], [alper.akcan@gmail.com])
 AC_CANONICAL_TARGET
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 AC_CONFIG_HEADER([config.h])
@@ -134,6 +134,8 @@ AC_CHECK_FUNCS([	\
 	utime			\
 	llseek			\
 	lseek64			\
+	sysconf			\
+	getdtablesize			\
 ])
 
 # Checks for libraries
@@ -149,6 +151,10 @@ fuse_version_yes
 #endif
 ], AC_DEFINE([FUSE_USE_VERSION], [27], [Version of FUSE interface]) AC_MSG_RESULT([yes]),
    AC_DEFINE([FUSE_USE_VERSION], [FUSE_VERSION], [Version of FUSE interface]) AC_MSG_RESULT([no]))
+
+AC_CHECK_LIB([ext2fs], [ext2fs_open], [], [enablestatice2fs=yes])
+
+AC_CHECK_LIB([ext2fs], [ext2fs_file_set_size2], [disablefileio=yes], [])
 
 # Check extra parameters
 AC_ARG_ENABLE([debug],
@@ -185,6 +191,19 @@ echo "Enabling swapfs support by default"
 	AC_DEFINE(ENABLE_SWAPFS, 1, [Define to 1 if you want 'swapfs' support.])
 )
 
+AC_ARG_ENABLE([fileio],
+		AS_HELP_STRING([--disable-fileio],
+			[disable fileio patch (required for e2fsprogs < 1.42)]),
+		[if test $enableval = "no"; then disablefileio=yes; fi])
+
+AC_ARG_ENABLE([static-ext2fs],
+		AS_HELP_STRING([--enable-static-ext2fs],
+			[use statically linked ext2fslib from fuse-ext2 (instead of the shared library included in your GNU-Linux distribution)]),
+		[if test $enableval = "yes"; then enablestatice2fs=yes; fi])
+
+AM_CONDITIONAL(STATIC_E2FS, test "$enablestatice2fs" = yes)
+AM_CONDITIONAL(DISABLEFILEIO, test "$disablefileio" = yes)
+
 AC_ARG_WITH(pkgconfigdir,
             [  --with-pkgconfigdir=DIR pkgconfig file in DIR @<:@LIBDIR/pkgconfig@:>@],
             [pkgconfigdir=$withval],
@@ -197,13 +216,13 @@ AM_CONDITIONAL(DARWIN, test "$arch" = darwin)
 AC_CONFIG_FILES([
 	fuse-ext2.pc
 	Makefile
-	e2fsprogs-1.41.9/Makefile
-	e2fsprogs-1.41.9/uuid/Makefile
-	e2fsprogs-1.41.9/blkid/Makefile
-	e2fsprogs-1.41.9/et/Makefile
-	e2fsprogs-1.41.9/e2p/Makefile
-	e2fsprogs-1.41.9/misc/Makefile
-	e2fsprogs-1.41.9/ext2fs/Makefile
+	e2fsprogs-1.41.12.newgit/Makefile
+	e2fsprogs-1.41.12.newgit/uuid/Makefile
+	e2fsprogs-1.41.12.newgit/blkid/Makefile
+	e2fsprogs-1.41.12.newgit/et/Makefile
+	e2fsprogs-1.41.12.newgit/e2p/Makefile
+	e2fsprogs-1.41.12.newgit/misc/Makefile
+	e2fsprogs-1.41.12.newgit/ext2fs/Makefile
 	fuse-ext2/Makefile
 	tools/Makefile
 	tools/macosx/Makefile
@@ -211,3 +230,12 @@ AC_CONFIG_FILES([
 ])
 
 AC_OUTPUT
+
+echo
+if test x$enablestatice2fs = "xyes" ; then
+	echo "+ statically linked ext2fs library"
+fi
+if test x$disablefileio = "xyes" ; then
+	echo "+ fileio disabled"
+fi
+

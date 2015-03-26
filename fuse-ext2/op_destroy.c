@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,9 @@
 void op_destroy (void *userdata)
 {
 	errcode_t rc;
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	rc = ext2fs_close(e2fs);
@@ -32,4 +34,5 @@ void op_destroy (void *userdata)
 	}
 	e2fs = NULL;
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 }

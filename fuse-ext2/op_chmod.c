@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,9 @@ int op_chmod (const char *path, mode_t mode)
 	ext2_ino_t ino;
 	struct ext2_vnode *vnode;
 	struct ext2_inode *inode;
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("path = %s 0%o", path, mode);
@@ -37,13 +39,13 @@ int op_chmod (const char *path, mode_t mode)
 	rt = do_check(path);
 	if (rt != 0) {
 		debugf("do_check(%s); failed", path);
-		return rt;
+		goto err;
 	}
 
-	rt = do_readvnode(e2fs, path, &ino, &vnode);
+	rt = do_readvnode(e2fs, path, &ino, &vnode, DONT_OPEN_FILE);
 	if (rt) {
 		debugf("do_readvnode(%s, &ino, &vnode); failed", path);
-		return rt;
+		goto err;
 	}
 	inode = vnode2inode(vnode);
 
@@ -55,9 +57,13 @@ int op_chmod (const char *path, mode_t mode)
 	rc=vnode_put(vnode,1);
 	if (rc) {
 		debugf("vnode_put(vnode,1); failed");
-		return -EIO;
+		rt = -EIO;
+		goto err;
 	}
+	rt=0;
 
+err:
 	debugf("leave");
-	return 0;
+	FUSE_EXT2_UNLOCK;
+	return rt;
 }

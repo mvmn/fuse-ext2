@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,7 +34,9 @@ int op_mkdir (const char *path, mode_t mode)
 
 	struct fuse_context *ctx;
 
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("path = %s, mode: 0%o, dir:0%o", path, mode, LINUX_S_IFDIR);
@@ -42,7 +44,7 @@ int op_mkdir (const char *path, mode_t mode)
 	rt=do_check_split(path, &p_path ,&r_path);
 	if (rt != 0) {
 		debugf("do_check(%s); failed", path);
-		return rt;
+		goto err;
 	}
 
 	debugf("parent: %s, child: %s, pathmax: %d", p_path, r_path, PATH_MAX);
@@ -50,8 +52,7 @@ int op_mkdir (const char *path, mode_t mode)
 	rt = do_readinode(e2fs, p_path, &ino, &inode);
 	if (rt) {
 		debugf("do_readinode(%s, &ino, &inode); failed", p_path);
-		free_split(p_path, r_path);
-		return rt;
+		goto err_free_split;
 	}
 
 	do {
@@ -61,22 +62,23 @@ int op_mkdir (const char *path, mode_t mode)
 			debugf("calling ext2fs_expand_dir(e2fs, &d)", ino);
 			if (ext2fs_expand_dir(e2fs, ino)) {
 				debugf("error while expanding directory %s (%d)", p_path, ino);
-				free_split(p_path, r_path);
-				return -ENOSPC;
+				rt = -ENOSPC;
+				goto err_free_split;
 			}
 		}
 	} while (rc == EXT2_ET_DIR_NO_SPACE);
 	if (rc) {
 		debugf("ext2fs_mkdir(e2fs, %d, 0, %s); failed (%d)", ino, r_path, rc);
 		debugf("e2fs: %p, e2fs->inode_map: %p", e2fs, e2fs->inode_map);
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	rt = do_readinode(e2fs, path, &ino, &inode);
 	if (rt) {
 		debugf("do_readinode(%s, &ino, &inode); failed", path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 	tm = e2fs->now ? e2fs->now : time(NULL);
 	inode.i_mode = LINUX_S_IFDIR | mode;
@@ -89,27 +91,33 @@ int op_mkdir (const char *path, mode_t mode)
 	rc = ext2fs_write_inode(e2fs, ino, &inode);
 	if (rc) {
 		debugf("ext2fs_write_inode(e2fs, ino, &inode); failed");
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	/* update parent dir */
 	rt = do_readinode(e2fs, p_path, &ino, &inode);
 	if (rt) {
 		debugf("do_readinode(%s, &ino, &inode); dailed", p_path);
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 	inode.i_ctime = inode.i_mtime = tm;
 	rc = ext2fs_write_inode(e2fs, ino, &inode);
 	if (rc) {
 		debugf("ext2fs_write_inode(e2fs, ino, &inode); failed");
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	free_split(p_path, r_path);
 
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
+err_free_split:
+	free_split(p_path, r_path);
+err:
+	FUSE_EXT2_UNLOCK;
+	return rt;
 }

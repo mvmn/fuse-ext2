@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,20 +31,22 @@ int op_link (const char *source, const char *dest)
 	struct ext2_vnode *vnode;
 	struct ext2_inode *inode;
 	struct ext2_inode d_inode;
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("source: %s, dest: %s", source, dest);
 
 	rc = do_check(source);
 	if (rc != 0) {
 		debugf("do_check(%s); failed", source);
-		return rc;
+		goto err;
 	}
 
 	rc = do_check_split(dest, &p_path, &r_path);
 	if (rc != 0) {
 		debugf("do_check(%s); failed", dest);
-		return rc;
+		goto err;
 	}
 
 	debugf("parent: %s, child: %s", p_path, r_path);
@@ -52,15 +54,13 @@ int op_link (const char *source, const char *dest)
 	rc = do_readinode(e2fs, p_path, &d_ino, &d_inode);
 	if (rc) {
 		debugf("do_readinode(%s, &ino, &inode); failed", p_path);
-		free_split(p_path, r_path);
-		return rc;
+		goto err_free_split;
 	}
 
-	rc = do_readvnode(e2fs, source, &ino, &vnode);
+	rc = do_readvnode(e2fs, source, &ino, &vnode, DONT_OPEN_FILE);
 	if (rc) {
 		debugf("do_readvnode(%s, &ino, &vnode); failed", source);
-		free_split(p_path, r_path);
-		return rc;
+		goto err_free_split;
 	}
 
 	inode = vnode2inode(vnode);
@@ -73,16 +73,16 @@ int op_link (const char *source, const char *dest)
 			if (ext2fs_expand_dir(e2fs, d_ino)) {
 				debugf("error while expanding directory %s (%d)", p_path, d_ino);
 				vnode_put(vnode, 0);
-				free_split(p_path, r_path);
-				return -ENOSPC;
+				rc = -ENOSPC;
+				goto err_free_split;
 			}
 		}
 	} while (rc == EXT2_ET_DIR_NO_SPACE);
 	if (rc) {
 		debugf("ext2fs_link(e2fs, %d, %s, %d, %d); failed", d_ino, r_path, ino, do_modetoext2lag(inode->i_mode));
 		vnode_put(vnode, 0);
-		free_split(p_path, r_path);
-		return -EIO;
+		rc = -EIO;
+		goto err_free_split;
 	}
 
 	d_inode.i_mtime = d_inode.i_ctime = inode->i_ctime = e2fs->now ? e2fs->now : time(NULL);
@@ -90,16 +90,22 @@ int op_link (const char *source, const char *dest)
 	rc=vnode_put(vnode,1);
 	if (rc) {
 		debugf("vnode_put(vnode,1); failed");
-		free_split(p_path, r_path);
-		return -EIO;
+		rc = -EIO;
+		goto err_free_split;
 	}
 	rc = ext2fs_write_inode(e2fs, d_ino, &d_inode);
 	if (rc) {
 		debugf("ext2fs_write_inode(e2fs, d_ino, &d_inode); failed");
-		free_split(p_path, r_path);
-		return -EIO;
+		rc = -EIO;
+		goto err_free_split;
 	}
+	free_split(p_path, r_path);
 	debugf("done");
-
+	FUSE_EXT2_LOCK;
 	return 0;
+err_free_split:
+	free_split(p_path, r_path);
+err:
+	FUSE_EXT2_LOCK;
+	return rc;
 }

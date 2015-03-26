@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -70,7 +70,9 @@ int op_statfs (const char *path, struct statvfs *buf)
 	unsigned long long s_overhead_last = 0;
 	unsigned long long s_inodes_per_block = 0;
 
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 
@@ -90,7 +92,7 @@ int op_statfs (const char *path, struct statvfs *buf)
 		s_overhead_last += (s_groups_count * (2 +  s_itb_per_group));
 	}
 	buf->f_bsize = EXT2_BLOCK_SIZE(e2fs->super);
-	buf->f_frsize = EXT2_FRAG_SIZE(e2fs->super);
+	buf->f_frsize = /*EXT2_FRAG_SIZE(e2fs->super);*/ buf->f_bsize;
 	buf->f_blocks = EXT2_BLOCKS_COUNT(e2fs->super) - s_overhead_last;
 	buf->f_bfree = EXT2_FBLOCKS_COUNT(e2fs->super);
 	if (EXT2_FBLOCKS_COUNT(e2fs->super) < EXT2_RBLOCKS_COUNT(e2fs->super)) {
@@ -104,5 +106,6 @@ int op_statfs (const char *path, struct statvfs *buf)
 	buf->f_namemax = EXT2_NAME_LEN;
 
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
 }

@@ -19,12 +19,10 @@
 	IBOutlet NSProgressIndicator *spinnerRemove;
 	IBOutlet NSProgressIndicator *spinnerUpdate;
 	AuthorizationRef authorizationReference;
-	BOOL taskRunning;
-	BOOL doUpdate;
 }
 
 - (void) mainViewDidLoad;
-- (IBAction) updateFuseExt2: (id) sender;
-- (IBAction) removeFuseExt2: (id) sender;
+- (IBAction) removeButtonClicked: (id) sender;
+- (IBAction) updateButtonClicked: (id) sender;
 
 @end

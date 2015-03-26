@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -93,7 +93,9 @@ int op_readdir (const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
 	struct dir_walk_data dwd={
 		.buf = buf,
 		.filler = filler};
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("path = %s", path);
@@ -101,6 +103,7 @@ int op_readdir (const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
 	rt = do_readinode(e2fs, path, &ino, &inode);
 	if (rt) {
 		debugf("do_readinode(%s, &ino, &inode); failed", path);
+		FUSE_EXT2_UNLOCK;
 		return rt;
 	}
 
@@ -112,9 +115,11 @@ int op_readdir (const char *path, void *buf, fuse_fill_dir_t filler, off_t offse
 
 	if (rc) {
 		debugf("Error while trying to ext2fs_dir_iterate %s", path);
+		FUSE_EXT2_UNLOCK;
 		return -EIO;
 	}
 
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
 }

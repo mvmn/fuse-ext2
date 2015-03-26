@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -81,7 +81,9 @@ int op_rmdir (const char *path)
 	ext2_ino_t r_ino;
 	struct ext2_inode r_inode;
 	
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("enter");
 	debugf("path = %s", path);
@@ -89,7 +91,7 @@ int op_rmdir (const char *path)
 	rt=do_check_split(path, &p_path, &r_path);
 	if (rt != 0) {
 		debugf("do_check_split: failed");
-		return rt;
+		goto err;
 	}
 
 	debugf("parent: %s, child: %s", p_path, r_path);
@@ -97,53 +99,48 @@ int op_rmdir (const char *path)
 	rt = do_readinode(e2fs, p_path, &p_ino, &p_inode);
 	if (rt) {
 		debugf("do_readinode(%s, &p_ino, &p_inode); failed", p_path);
-		free_split(p_path, r_path);
-		return rt;
+		goto err_free_split;
 	}
 	rt = do_readinode(e2fs, path, &r_ino, &r_inode);
 	if (rt) {
 		debugf("do_readinode(%s, &r_ino, &r_inode); failed", path);
-		free_split(p_path, r_path);
-		return rt;
+		goto err_free_split;
 		
 	}
 	if (!LINUX_S_ISDIR(r_inode.i_mode)) {
 		debugf("%s is not a directory", path);
-		free_split(p_path, r_path);
-		return -ENOTDIR;
+		rt = -ENOTDIR;
+		goto err_free_split;
 	}
 	if (r_ino == EXT2_ROOT_INO) {
 		debugf("root dir cannot be removed", path);
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 	
 	rt = do_check_empty_dir(e2fs, r_ino);
 	if (rt) {
 		debugf("do_check_empty_dir filed");
-		free_split(p_path, r_path);
-		return rt;
+		goto err_free_split;
 	}
 
 	rc = ext2fs_unlink(e2fs, p_ino, r_path, r_ino, 0);
 	if (rc) {
 		debugf("while unlinking ino %d", (int) r_ino);
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	rt = do_killfilebyinode(e2fs, r_ino, &r_inode);
 	if (rt) {
 		debugf("do_killfilebyinode(r_ino, &r_inode); failed");
-		free_split(p_path, r_path);
-		return rt;
+		goto err_free_split;
 	}
 
 	rt = do_readinode(e2fs, p_path, &p_ino, &p_inode);
 	if (rt) {
 		debugf("do_readinode(p_path, &p_ino, &p_inode); failed");
-		free_split(p_path, r_path);
-		return rt;
+		goto err_free_split;
 	}
 	if (p_inode.i_links_count > 1) {
 		p_inode.i_links_count--;
@@ -151,12 +148,18 @@ int op_rmdir (const char *path)
 	rc = ext2fs_write_inode(e2fs, p_ino, &p_inode);
 	if (rc) {
 		debugf("ext2fs_write_inode(e2fs, ino, inode); failed");
-		free_split(p_path, r_path);
-		return -EIO;
+		rt = -EIO;
+		goto err_free_split;
 	}
 
 	free_split(p_path, r_path);
 
 	debugf("leave");
+	FUSE_EXT2_UNLOCK;
 	return 0;
+err_free_split:
+	free_split(p_path, r_path);
+err:
+	FUSE_EXT2_UNLOCK;
+	return rt;
 }

@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -79,14 +79,16 @@ int op_rename(const char *source, const char *dest)
 	struct ext2_inode *dest_inode;
 	struct ext2_inode d_src_inode;
 	struct ext2_inode d_dest_inode;
-	ext2_filsys e2fs = current_ext2fs();
+	ext2_filsys e2fs;
+	FUSE_EXT2_LOCK;
+	e2fs	= current_ext2fs();
 
 	debugf("source: %s, dest: %s", source, dest);
 
 	rt = do_check_split(source, &p_src, &r_src);
 	if (rt != 0) {
 		debugf("do_check(%s); failed", source);
-		return rt;
+		goto err;
 	}
 
 	debugf("src_parent: %s, src_child: %s", p_src, r_src);
@@ -111,14 +113,14 @@ int op_rename(const char *source, const char *dest)
 		goto out_free;
 	}
 
-	rt = do_readvnode(e2fs, source, &src_ino, &src_vnode);
+	rt = do_readvnode(e2fs, source, &src_ino, &src_vnode, DONT_OPEN_FILE);
 	if (rt != 0) {
 		debugf("do_readvnode(%s, &src_ino, &src_vnode); failed", source);
 		goto out_free;
 	}
 
 	/* dest == ENOENT is okay */
-	destrt = do_readvnode(e2fs, dest, &dest_ino, &dest_vnode);
+	destrt = do_readvnode(e2fs, dest, &dest_ino, &dest_vnode, DONT_OPEN_FILE);
 	if (rt != 0 && rt != -ENOENT) {
 		debugf("do_readinode(%s, &dest_ino, &dest_inode); failed", dest);
 		goto out_vsrc;
@@ -277,8 +279,9 @@ int op_rename(const char *source, const char *dest)
 		goto out_free;
 	}
 
-	free_split(p_src, r_src);
 	free_split(p_dest, r_dest);
+	free_split(p_src, r_src);
+	FUSE_EXT2_UNLOCK;
 	return 0;
 out:
 	if (destrt == 0)
@@ -286,10 +289,10 @@ out:
 out_vsrc:
 	vnode_put(src_vnode,0);
 out_free:
-	free_split(p_src, r_src);
 	free_split(p_dest, r_dest);
 out_free_src:
 	free_split(p_src, r_src);
-
+err:
+	FUSE_EXT2_UNLOCK;
 	return rt;
 }

@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ int do_readinode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ex
 	return 0;
 }
 
-int do_readvnode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ext2_vnode **vnode)
+int do_readvnode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ext2_vnode **vnode, int openflags)
 {
 	errcode_t rc;
 	rc = ext2fs_namei(e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, path, ino);
@@ -44,7 +44,11 @@ int do_readvnode (ext2_filsys e2fs, const char *path, ext2_ino_t *ino, struct ex
 		debugf("ext2fs_namei(e2fs, EXT2_ROOT_INO, EXT2_ROOT_INO, %s, ino); failed", path);
 		return -ENOENT;
 	}
-	*vnode = vnode_get(e2fs, *ino);
+	if (openflags & OPEN_FILE) {
+		*vnode = vnode_file_open(e2fs, *ino, openflags);
+	} else {
+		*vnode = vnode_get(e2fs, *ino);
+	}
 	if (*vnode==NULL) {
 		debugf("vnode_get(e2fs, *ino); failed");
 		return -EIO;

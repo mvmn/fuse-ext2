@@ -1,6 +1,6 @@
 /**
  * Copyright (c) 2008-2010 Alper Akcan <alper.akcan@gmail.com>
- * Copyright (c) 2009 Renzo Davoli <renzo@cs.unibo.it>
+ * Copyright (c) 2009-2010 Renzo Davoli <renzo@cs.unibo.it>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@
  */
 
 #include "fuse-ext2.h"
+
+FUSE_EXT2_DEFINE_MUTEX;
 
 static const char *HOME = "http://sourceforge.net/projects/fuse-ext2/";
 
@@ -185,7 +187,8 @@ static char * parse_mount_options (const char *orig_opts, struct extfs_data *opt
 	}
 
 	s = options;
-	while (s && *s && (val = strsep(&s, ","))) {
+	while (s && *s) {
+		val = strsep(&s, ",");
 		opt = strsep(&val, "=");
 		if (!strcmp(opt, "ro")) { /* Read-only mount. */
 			if (val) {
@@ -193,14 +196,12 @@ static char * parse_mount_options (const char *orig_opts, struct extfs_data *opt
 				goto err_exit;
 			}
 			opts->readonly = 1;
-			strcat(ret, "ro,");
 		} else if (!strcmp(opt, "rw")) { /* Read-write mount */
 			if (val) {
 				debugf_main("'rw' option should not have value");
 				goto err_exit;
 			}
 			opts->readonly = 0;
-			strcat(ret, "rw,");
 		} else if (!strcmp(opt, "rw+")) { /* Read-write mount */
 			if (val) {
 				debugf_main("'rw+' option should not have value");
@@ -208,7 +209,6 @@ static char * parse_mount_options (const char *orig_opts, struct extfs_data *opt
 			}
 			opts->readonly = 0;
 			opts->force = 1;
-			strcat(ret, "rw,");
 		} else if (!strcmp(opt, "debug")) { /* enable debug */
 			if (val) {
 				debugf_main("'debug' option should not have value");
@@ -250,7 +250,8 @@ static char * parse_mount_options (const char *orig_opts, struct extfs_data *opt
 	if (opts->readonly == 1) {
 		strcat(ret, def_opts_rd);
 		strcat(ret, "ro,");
-	}
+	} else 
+		strcat(ret, "rw,");
 	strcat(ret, "fsname=");
 	strcat(ret, opts->device);
 #if __FreeBSD__ == 10
