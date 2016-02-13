@@ -55,7 +55,6 @@ The easiest way is using [Homebrew](http://brew.sh/):
 ```shell
 brew install e2fsprogs m4 automake autoconf libtool
 ./autogen.sh
-CFLAGS="-idirafter/$(brew --prefix e2fsprogs)/include -idirafter/usr/local/include/osxfuse" LDFLAGS="-L$(brew --prefix e2fsprogs)/lib" ./configure
 CFLAGS="-idirafter/$(brew --prefix e2fsprogs)/include -idirafter/usr/local/include/osxfuse" LDFLAGS="-L/usr/local/lib -L$(brew --prefix e2fsprogs)/lib" ./configure --sbindir=/usr/local/sbin
 make 
 sudo make install
