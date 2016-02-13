@@ -61,11 +61,11 @@ ${MKDIR_P} ${DISTRIBUTION_FOLDER}/usr/local/lib
 ${MKDIR_P} ${DISTRIBUTION_FOLDER}/usr/local/lib/pkgconfig
 ${MKDIR_P} ${DISTRIBUTION_FOLDER}/usr/local/share/man/man1/
 ${MKDIR_P} ${DISTRIBUTION_FOLDER}/Library/PreferencePanes
-${MKDIR_P} ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs
-${MKDIR_P} ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/Support
-${MKDIR_P} ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/Contents
-${MKDIR_P} ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/Contents/Resources
-${MKDIR_P} ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/Contents/Resources/English.lproj
+${MKDIR_P} ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs
+${MKDIR_P} ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/Support
+${MKDIR_P} ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/Contents
+${MKDIR_P} ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/Contents/Resources
+${MKDIR_P} ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/Contents/Resources/English.lproj
 ${CP_R} ${MKPKG_FOLDER}/prefpane/build/Release/fuse-ext2.prefPane ${DISTRIBUTION_FOLDER}/Library/PreferencePanes/fuse-ext2.prefPane
 ${INSTALL_C} -m 755 ${BUILD_FOLDER}/e2fsprogs-1.41.9/misc/fuse-ext2.e2label ${DISTRIBUTION_FOLDER}/usr/local/bin/fuse-ext2.e2label
 ${INSTALL_C} -m 755 ${BUILD_FOLDER}/e2fsprogs-1.41.9/misc/fuse-ext2.mke2fs ${DISTRIBUTION_FOLDER}/usr/local/bin/fuse-ext2.mke2fs
@@ -76,13 +76,13 @@ ${INSTALL_C} -m 755 ${BUILD_FOLDER}/fuse-ext2/fuse-ext2.install ${DISTRIBUTION_F
 ${INSTALL_C} -m 755 ${BUILD_FOLDER}/fuse-ext2/fuse-ext2.uninstall ${DISTRIBUTION_FOLDER}/usr/local/bin/fuse-ext2.uninstall
 ${INSTALL_C} -m 644 ${BUILD_FOLDER}/fuse-ext2.pc ${DISTRIBUTION_FOLDER}/usr/local/lib/pkgconfig/fuse-ext2.pc
 ${INSTALL_C} -m 644 ${SOURCE_FOLDER}/fuse-ext2.1 ${DISTRIBUTION_FOLDER}/usr/local/share/man/man1/fuse-ext2.1
-${INSTALL_C} -m 755 ${MKPKG_FOLDER}/fuse-ext2.fs/fuse-ext2.util ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/fuse-ext2.util
-${INSTALL_C} -m 755 ${MKPKG_FOLDER}/fuse-ext2.fs/mount_fuse-ext2 ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/mount_fuse-ext2
+${INSTALL_C} -m 755 ${MKPKG_FOLDER}/fuse-ext2.fs/fuse-ext2.util ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/fuse-ext2.util
+${INSTALL_C} -m 755 ${MKPKG_FOLDER}/fuse-ext2.fs/mount_fuse-ext2 ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/mount_fuse-ext2
 ${SED_E} "s/FUSEEXT2_VERSION_LITERAL/$FUSEEXT2_VERSION/g" < ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/Info.plist.in > ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/Info.plist
-${INSTALL_C} -m 644 ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/Info.plist ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/Contents/Info.plist
-${INSTALL_C} -m 644 ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/PkgInfo ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/Contents/PkgInfo
-${INSTALL_C} -m 644 ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/Resources/English.lproj/InfoPlist.strings ${DISTRIBUTION_FOLDER}/System/Library/Filesystems/fuse-ext2.fs/Contents/Resources/English.lproj/InfoPlist.strings
-${LN_SF} ../System/Library/Filesystems/fuse-ext2.fs/mount_fuse-ext2 ${DISTRIBUTION_FOLDER}/sbin/mount_fuse-ext2
+${INSTALL_C} -m 644 ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/Info.plist ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/Contents/Info.plist
+${INSTALL_C} -m 644 ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/PkgInfo ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/Contents/PkgInfo
+${INSTALL_C} -m 644 ${MKPKG_FOLDER}/fuse-ext2.fs/Contents/Resources/English.lproj/InfoPlist.strings ${DISTRIBUTION_FOLDER}/Library/Filesystems/fuse-ext2.fs/Contents/Resources/English.lproj/InfoPlist.strings
+${LN_SF} ../Library/Filesystems/fuse-ext2.fs/mount_fuse-ext2 ${DISTRIBUTION_FOLDER}/sbin/mount_fuse-ext2
 ${SED_E} "s/FUSEEXT2_VERSION_LITERAL/$FUSEEXT2_VERSION/g" < ${MKPKG_FOLDER}/Info.plist.in > ${MKPKG_FOLDER}/Info.plist
 ${MV} ${MKPKG_FOLDER}/Info.plist ${TMP_FOLDER}/Info.plist
 ${CHOWN_R} root:wheel ${TMP_FOLDER}

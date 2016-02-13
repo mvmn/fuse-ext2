@@ -39,7 +39,7 @@ static int uninstall = 0;
 static char *files[] = {
 	"/Library/Receipts/fuse-ext2.pkg",
 	"/Library/Filesystems/fuse-ext2.fs",
-	"/System/Library/Filesystems/fuse-ext2.fs",
+	"/Library/Filesystems/fuse-ext2.fs",
 	"/Library/PreferencePanes/fuse-ext2.prefPane",
 	"/System/Library/PreferencePanes/fuse-ext2.prefPane",
 	"/usr/local/bin/fuse-ext2",
